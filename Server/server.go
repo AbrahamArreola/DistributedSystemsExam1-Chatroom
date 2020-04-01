@@ -39,7 +39,7 @@ func manageUsers(connection net.Conn) {
 	//First it's created a reader to get user data from the port
 	length, err := connection.Read(data)
 	if err != nil {
-		fmt.Printf("Client %v quit.\n", connection.RemoteAddr())
+		fmt.Printf("Client %s quit.\n", connection.RemoteAddr())
 		connection.Close()
 		disconnectUser(connection, connection.RemoteAddr().String())
 		return
@@ -57,13 +57,12 @@ func manageUsers(connection net.Conn) {
 	for {
 		length, err := connection.Read(data)
 		if err != nil {
-			fmt.Printf("Client %s quit.\n", userName)
 			connection.Close()
 			disconnectUser(connection, userName)
 			return
 		}
 		responseMessage = string(data[:length])
-		userResponse := userName + ": " + responseMessage
+		userResponse := userName + " sent: " + responseMessage
 		fmt.Println(userResponse)
 		notifyUsers(connection, userResponse)
 	}
