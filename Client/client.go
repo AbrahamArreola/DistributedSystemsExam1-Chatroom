@@ -2,10 +2,18 @@ package main
 
 import (
 	"bufio"
+	"encoding/gob"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 )
+
+//DataFile is...
+type DataFile struct {
+	Name     string
+	ByteFile []byte
+}
 
 var writeData = make([]byte, 1024)
 var readData = make([]byte, 1024)
@@ -44,7 +52,12 @@ func joinUser(remote string) {
 		switch option {
 		case 1:
 			fmt.Printf("Option: %d\n", option)
-			writeToServer(connection)
+			sendDataType(connection, true)
+			messageToServer(connection)
+
+		case 2:
+			sendDataType(connection, false)
+			fileToServer(connection)
 
 		case 3:
 			fmt.Printf("Option: %d\n***** All messages since you entered*****\n%s", option, allMessages)
@@ -75,8 +88,22 @@ func readFromServer(connection net.Conn, option int) {
 	return
 }
 
+//Function to notify the server whether the message is a string or a file
+func sendDataType(connection net.Conn, isMessage bool) {
+	if isMessage {
+		writeData = []byte("1")
+	} else {
+		writeData = []byte("0")
+	}
+	input, err := connection.Write([]byte(writeData))
+	if err != nil {
+		fmt.Printf("Error when send to server: %d\n", input)
+		return
+	}
+}
+
 //Function to write data to the server to send messages
-func writeToServer(connection net.Conn) {
+func messageToServer(connection net.Conn) {
 	fmt.Print("Write your message: ")
 	writeData, _, _ = scan.ReadLine()
 	input, err := connection.Write([]byte(writeData))
@@ -85,6 +112,41 @@ func writeToServer(connection net.Conn) {
 		return
 	}
 	allMessages += "You sent: " + string(writeData) + "\n"
+}
+
+//Function to send a file to the server
+func fileToServer(connection net.Conn) {
+	var dataFile DataFile
+
+	fmt.Print("Write the route of the file: ")
+	writeData, _, _ = scan.ReadLine()
+	route := string(writeData)
+	fmt.Println(route)
+
+	//Get file info
+	fileInfo, err := os.Stat(route)
+	//Open the file
+	file, err := os.Open(route)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	dataFile.Name = fileInfo.Name()
+	dataFile.ByteFile = data
+	file.Close()
+
+	//Send file to server
+	err = gob.NewEncoder(connection).Encode(dataFile)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func main() {

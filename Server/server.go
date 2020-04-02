@@ -1,11 +1,18 @@
 package main
 
 import (
+	"encoding/gob"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
 )
+
+//DataFile is...
+type DataFile struct {
+	Name     string
+	ByteFile []byte
+}
 
 var clientList = make([]net.Conn, 0)
 var data = make([]byte, 1024)
@@ -65,11 +72,44 @@ func manageUsers(connection net.Conn) {
 			disconnectUser(connection, userName)
 			return
 		}
-		responseMessage = string(data[:length])
-		userResponse := userName + " sent: " + responseMessage
-		allMessages += userResponse + "\n"
-		//fmt.Println(userResponse)
-		notifyUsers(connection, userResponse)
+
+		dataType := string(data[:length])
+		if dataType == "1" {
+			length, err = connection.Read(data)
+			if err != nil {
+				connection.Close()
+				disconnectUser(connection, userName)
+				return
+			}
+
+			responseMessage = string(data[:length])
+			userResponse := userName + " sent: " + responseMessage
+			allMessages += userResponse + "\n"
+			notifyUsers(connection, userResponse)
+
+		} else {
+			var dataFile DataFile
+			err := gob.NewDecoder(connection).Decode(&dataFile)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			userResponse := userName + " sent: " + dataFile.Name
+			allMessages += userResponse + "\n"
+			notifyUsers(connection, userResponse)
+			saveFileSent(dataFile)
+		}
+	}
+}
+
+func saveFileSent(dataFile DataFile) {
+	dir := "files\\" + dataFile.Name
+
+	err := ioutil.WriteFile(dir, []byte(dataFile.ByteFile), 0666)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("New file created!")
 	}
 }
 
