@@ -2,29 +2,32 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
+	"os"
 )
 
 var clientList = make([]net.Conn, 0)
 var data = make([]byte, 1024)
+var allMessages string
 
 //Initialize listener port
 func initServer(remote string) {
-	fmt.Println("Initiating server... (<ENTER> to stop)")
+	fmt.Println("Running server...")
 
 	listener, err := net.Listen("tcp", remote)
 	if err != nil {
 		fmt.Printf("Error when listen: %s, Err: %s\n", remote, err)
-		listener.Close()
 		return
 	}
+
+	go optionMenu()
 
 	//Loop waiting for user data
 	for {
 		connection, err := listener.Accept()
 		if err != nil {
 			fmt.Println("Error accepting client: ", err.Error())
-			connection.Close()
 			return
 		}
 		clientList = append(clientList, connection)
@@ -48,6 +51,7 @@ func manageUsers(connection net.Conn) {
 	//Then it gets the username
 	userName := string(data[:length])
 	welcomeMessage := userName + " entered the chat."
+	allMessages += welcomeMessage + "\n"
 	notifyUsers(connection, welcomeMessage)
 
 	//Finally it receives and sends messages
@@ -63,22 +67,26 @@ func manageUsers(connection net.Conn) {
 		}
 		responseMessage = string(data[:length])
 		userResponse := userName + " sent: " + responseMessage
-		fmt.Println(userResponse)
+		allMessages += userResponse + "\n"
+		//fmt.Println(userResponse)
 		notifyUsers(connection, userResponse)
 	}
 }
 
+//Search function that iterates over clientList to disconnect certain user
 func disconnectUser(connection net.Conn, userName string) {
 	for index, con := range clientList {
 		if con.RemoteAddr() == connection.RemoteAddr() {
-			disconnectMessage := userName + " has left the room."
-			fmt.Println(disconnectMessage)
+			disconnectMessage := userName + " has left the chat."
+			allMessages += disconnectMessage + "\n"
+			//fmt.Println(disconnectMessage)
 			clientList = append(clientList[:index], clientList[index+1:]...)
 			notifyUsers(connection, disconnectMessage)
 		}
 	}
 }
 
+//Function to send messages to all users connect except the one who sends them
 func notifyUsers(connection net.Conn, message string) {
 	for _, con := range clientList {
 		if con.RemoteAddr() != connection.RemoteAddr() {
@@ -87,14 +95,37 @@ func notifyUsers(connection net.Conn, message string) {
 	}
 }
 
+//Option menu to select an option to do
+func optionMenu() {
+	var option int
+	for {
+		fmt.Println("Options:\n1.Show messages\n2. Backup messages\n3. Stop server")
+		fmt.Scanln(&option)
+		switch option {
+		case 1:
+			fmt.Printf("Option: %d\n***** All messages in chatroom*****\n%s", option, allMessages)
+			fmt.Print("***********************************\n")
+
+		case 2:
+			err := ioutil.WriteFile("messages.txt", []byte(allMessages), 0666)
+			if err != nil {
+				fmt.Println(err)
+			}
+			fmt.Println("Messages backup done!")
+
+		case 3:
+			fmt.Println("Server stopped")
+			os.Exit(0)
+		}
+	}
+}
+
 func main() {
 	var (
-		stopInput string
-		host      = "127.0.0.1"
-		port      = "9000"
-		remote    = host + ":" + port
+		host   = "127.0.0.1"
+		port   = "9000"
+		remote = host + ":" + port
 	)
 
-	go initServer(remote)
-	fmt.Scanln(&stopInput)
+	initServer(remote)
 }

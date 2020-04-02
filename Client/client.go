@@ -12,17 +12,19 @@ var readData = make([]byte, 1024)
 var scan = bufio.NewReader(os.Stdin)
 var allMessages string
 
+//Function to open new client connection
 func joinUser(remote string) {
 	connection, err := net.Dial("tcp", remote)
 
 	if err != nil {
 		fmt.Println("Server not found.")
-		connection.Close()
 		return
 	}
 
 	fmt.Println("You've entered the chat.")
 	allMessages += "You've entered the chat.\n"
+
+	//First it's sent the username
 	fmt.Print("Enter your name: ")
 	fmt.Scanln(&writeData)
 	input, err := connection.Write([]byte(writeData))
@@ -31,9 +33,11 @@ func joinUser(remote string) {
 		return
 	}
 
+	//Then it's called concurrently readFromServer to listen for data from the server
 	var option int
 	go readFromServer(connection, option)
 
+	//Loop to select an option to do
 	for {
 		fmt.Println("Options:\n1. send message\n2. send file\n3. show chatroom\n4. Exit chatroom")
 		fmt.Scanln(&option)
@@ -43,8 +47,8 @@ func joinUser(remote string) {
 			writeToServer(connection)
 
 		case 3:
-			fmt.Printf("Option: %d\n***** All messages since you entered the chat*****\n%s", option, allMessages)
-			fmt.Print("**************************************************\n")
+			fmt.Printf("Option: %d\n***** All messages since you entered*****\n%s", option, allMessages)
+			fmt.Print("*****************************************\n")
 
 		case 4:
 			fmt.Println("You've left the chatroom")
@@ -56,6 +60,7 @@ func joinUser(remote string) {
 	}
 }
 
+//Function to read data from server while option different of 4 (exit program)
 func readFromServer(connection net.Conn, option int) {
 	for option != 4 {
 		length, err := connection.Read(readData)
@@ -70,6 +75,7 @@ func readFromServer(connection net.Conn, option int) {
 	return
 }
 
+//Function to write data to the server to send messages
 func writeToServer(connection net.Conn) {
 	fmt.Print("Write your message: ")
 	writeData, _, _ = scan.ReadLine()
